@@ -1,0 +1,78 @@
+//
+// Created by Tom on 1/17/2025.
+//
+
+#ifndef CURSE_DOCUMENTATIONLIST_H
+#define CURSE_DOCUMENTATIONLIST_H
+
+
+#include <wx/wx.h>
+#include <wx/scrolwin.h>
+#include "../../state/State.h"
+
+class DocumentationList : public wxPanel {
+private:
+    wxScrolledWindow* scrollWindow;  // Прокручиваемая область
+    wxBoxSizer* scrollSizer;         // Сайзер для прокручиваемого окна
+    State *appState;
+
+
+    void UpdateList() {
+        // Очистим старые элементы
+        scrollWindow->DestroyChildren();
+
+        // Добавим новые элементы документации
+        for (const auto& doc : appState->documentations) {
+            wxPanel* docPanel = new wxPanel(scrollWindow, wxID_ANY);
+            wxBoxSizer* docSizer = new wxBoxSizer(wxHORIZONTAL);
+
+            wxStaticText* titleText = new wxStaticText(docPanel, wxID_ANY, wxString::FromUTF8(doc.title));
+            wxStaticText* descriptionText = new wxStaticText(docPanel, wxID_ANY, wxString::FromUTF8(doc.description));
+
+            docSizer->Add(titleText, 1, wxEXPAND | wxALL, 5);
+            docSizer->Add(descriptionText, 2, wxEXPAND | wxALL, 5);
+
+            docPanel->SetSizer(docSizer);
+            scrollWindow->GetSizer()->Add(docPanel, 0, wxEXPAND | wxALL, 5);
+        }
+
+        scrollWindow->Layout();
+    }
+
+public:
+    explicit DocumentationList(wxWindow* parent, State* state)
+            : wxPanel(parent, wxID_ANY), appState(state) {
+        // Создаем прокручиваемое окно
+        scrollWindow = new wxScrolledWindow(this, wxID_ANY);
+        scrollWindow->SetScrollRate(5, 5);  // Настроим скорость прокрутки
+
+        // Сайзер для прокручиваемого окна
+        scrollSizer = new wxBoxSizer(wxVERTICAL);
+        scrollWindow->SetSizer(scrollSizer);
+
+        // Главный сайзер
+        wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+        mainSizer->Add(scrollWindow, 1, wxEXPAND | wxALL, 5);
+        this->SetSizer(mainSizer);
+
+
+        UpdateList();
+
+        // Подписываемся на изменение состояния
+        appState->Bind(EVT_APP_STATE_CHANGED, &DocumentationList::OnStateChanged, this);
+    }
+
+    // Обновление списка документации
+    void OnStateChanged(wxCommandEvent& event) {
+        UpdateList();
+    }
+
+    // Деструктор, отписываемся от события
+    ~DocumentationList() override {
+        appState->Unbind(EVT_APP_STATE_CHANGED, &DocumentationList::OnStateChanged, this);
+    }
+
+
+};
+
+#endif //CURSE_DOCUMENTATIONLIST_H
