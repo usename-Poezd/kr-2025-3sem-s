@@ -8,6 +8,7 @@
 #include "ui/frames/ProjectFrame.h"
 
 
+// Основной класс приложения
 class MyApp : public wxApp {
 private:
     State* appState;
@@ -26,6 +27,7 @@ public:
 
         appState = new State(projService, nullptr);
 
+        // Создаем окна для управления проектами и документациями
         mainFrame = new MainFrame(appState);
         projectFrame = new ProjectFrame(appState, mainFrame);
 
@@ -33,6 +35,8 @@ public:
         projectFrame->Bind(wxEVT_CLOSE_WINDOW, &MyApp::OnProjectFrameClose, this);
         mainFrame->Bind(wxEVT_CLOSE_WINDOW, &MyApp::OnMainFrameClose, this);
 
+
+        // При этом показываем сначала только окно управления проектами
         projectFrame->Show();
         return true;
     }
@@ -57,4 +61,5 @@ public:
     }
 };
 
+// Запускаем приложение
 wxIMPLEMENT_APP(MyApp);
