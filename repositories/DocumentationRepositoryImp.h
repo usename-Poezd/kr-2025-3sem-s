@@ -32,18 +32,42 @@ private:
 
     static Documentation ParseDocFile(const std::string& id, const std::string& filePath) {
         std::ifstream file(filePath);
-        if (!file.is_open())
+        if (!file.is_open()) {
             throw std::runtime_error("Failed to open documentation file: " + filePath);
+        }
 
-        std::string title, description, tagsLine, filePathLine;
+        std::string title, descriptionLine, tagsLine, filePathLine;
+
+        // Читаем TITLE
         std::getline(file, title);
-        std::getline(file, description);
-        std::getline(file, tagsLine);
-        std::getline(file, filePathLine);  // Читаем строку для FILEPATH, если она есть
+        if (title.substr(0, 7) != "#TITLE ") {
+            throw std::runtime_error("Invalid title format in documentation file: " + filePath);
+        }
+        title = title.substr(7);  // Удаляем "#TITLE "
 
-        title = title.substr(7);        // Удаляем "#TITLE "
+        // Читаем DESCRIPTION (многострочное описание)
+        std::string description;
+        while (std::getline(file, descriptionLine)) {
+            // Прерываем, когда встречаем #TAGS
+            if (descriptionLine.substr(0, 6) == "#TAGS ") {
+                tagsLine = descriptionLine;  // Сохраняем строку с тегами
+                break;  // Выход из цикла, так как описание закончено
+            }
+            description += descriptionLine + "\n";  // Добавляем строку в описание
+        }
+
+        // Убираем последнюю лишнюю новую строку
+        if (!description.empty()) {
+            description = description.substr(0, description.size() - 1);
+        }
         description = description.substr(13); // Удаляем "#DESCRIPTION "
-        tagsLine = tagsLine.substr(6); // Удаляем "#TAGS "
+
+
+        // Читаем TAGS
+        if (tagsLine.substr(0, 6) != "#TAGS ") {
+            throw std::runtime_error("Invalid tags format in documentation file: " + filePath);
+        }
+        tagsLine = tagsLine.substr(6);  // Удаляем "#TAGS "
 
         std::vector<std::string> tags;
         std::istringstream tagStream(tagsLine);
@@ -52,16 +76,14 @@ private:
             tags.push_back(tag);
         }
 
+        // Читаем FILEPATH, если он существует
         std::string filePathValue;
-        if (filePathLine.rfind("#FILEPATH ", 0) == 0) {
-            filePathValue = filePathLine.substr(10); // Удаляем "#FILEPATH "
+        if (std::getline(file, filePathLine) && filePathLine.rfind("#FILEPATH ", 0) == 0) {
+            filePathValue = filePathLine.substr(10);  // Удаляем "#FILEPATH "
         }
-
-
 
         return Documentation{id, title, description, tags, filePathValue};
     }
-
 public:
     DocumentationRepositoryImp(const std::string& basePath)
             : dbPath(basePath), docsPath(basePath + "/documentations"), docsFilesPath(basePath + "/documentations_files") {

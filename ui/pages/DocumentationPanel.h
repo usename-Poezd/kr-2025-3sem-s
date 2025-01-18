@@ -5,6 +5,7 @@
 #include <wx/sizer.h>
 #include <wx/button.h>
 #include <wx/hyperlink.h>
+#include <wx/filename.h>
 #include "../../domain/Documentation.h"
 #include "../../state/State.h"
 
@@ -14,39 +15,65 @@ public:
     explicit DocumentationPanel(wxWindow* parent, State* state)
             : wxPanel(parent, wxID_ANY), appState(state) {
 
-        wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+        wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+        // Хедер с кнопками "Back" и "Edit"
+        wxPanel* headerPanel = new wxPanel(this, wxID_ANY);
+        wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
+
+        backButton = new wxButton(headerPanel, wxID_ANY, "Back");
+        headerSizer->Add(backButton, 0, wxALL, 5);
+
+        headerText = new wxStaticText(headerPanel, wxID_ANY, "Documentation Details");
+        headerSizer->Add(headerText, 1, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+
+        // Добавляем пустое пространство для выравнивания кнопки вправо
+        headerSizer->AddStretchSpacer(1);
+
+        // Кнопка "Edit", выравненная по правому краю
+        editButton = new wxButton(headerPanel, wxID_ANY, "Edit");
+        headerSizer->Add(editButton, 0, wxALL | wxALIGN_CENTER_VERTICAL, 5); // Добавляем кнопку
+
+        headerPanel->SetSizer(headerSizer);
+        mainSizer->Add(headerPanel, 0, wxEXPAND | wxALL, 5);
+
+        // Основная информация
+        wxBoxSizer* contentSizer = new wxBoxSizer(wxVERTICAL);
 
         // Заголовок
-        sizer->Add(new wxStaticText(this, wxID_ANY, "Title:"), 0, wxALL, 5);
+        contentSizer->Add(new wxStaticText(this, wxID_ANY, "Title:"), 0, wxALL, 5);
         titleText = new wxStaticText(this, wxID_ANY, "");
-        sizer->Add(titleText, 0, wxALL | wxEXPAND, 5);
+        contentSizer->Add(titleText, 0, wxALL | wxEXPAND, 5);
 
         // Описание
-        sizer->Add(new wxStaticText(this, wxID_ANY, "Description:"), 0, wxALL, 5);
+        contentSizer->Add(new wxStaticText(this, wxID_ANY, "Description:"), 0, wxALL, 5);
         descriptionText = new wxStaticText(this, wxID_ANY, "");
-        sizer->Add(descriptionText, 0, wxALL | wxEXPAND, 5);
+        contentSizer->Add(descriptionText, 0, wxALL | wxEXPAND, 5);
 
         // Теги
-        sizer->Add(new wxStaticText(this, wxID_ANY, "Tags:"), 0, wxALL, 5);
+        contentSizer->Add(new wxStaticText(this, wxID_ANY, "Tags:"), 0, wxALL, 5);
         tagsText = new wxStaticText(this, wxID_ANY, "");
-        sizer->Add(tagsText, 0, wxALL | wxEXPAND, 5);
+        contentSizer->Add(tagsText, 0, wxALL | wxEXPAND, 5);
 
         // Путь к файлу
-        sizer->Add(new wxStaticText(this, wxID_ANY, "File Path:"), 0, wxALL, 5);
+        contentSizer->Add(new wxStaticText(this, wxID_ANY, "File Path:"), 0, wxALL, 5);
         filePathText = new wxStaticText(this, wxID_ANY, "");
-        sizer->Add(filePathText, 0, wxALL | wxEXPAND, 5);
+        contentSizer->Add(filePathText, 0, wxALL | wxEXPAND, 5);
 
         // Кнопка "Открыть файл"
         openFileButton = new wxButton(this, wxID_ANY, "Open File");
-        sizer->Add(openFileButton, 0, wxALL | wxALIGN_CENTER, 10);
+        contentSizer->Add(openFileButton, 0, wxALL | wxALIGN_CENTER, 10);
 
-        // Привязываем обработчик события для кнопки
+        mainSizer->Add(contentSizer, 1, wxALL | wxEXPAND, 5);
+
+        SetSizerAndFit(mainSizer);
+
+        // Привязываем обработчики событий
+        backButton->Bind(wxEVT_BUTTON, &DocumentationPanel::OnBack, this);
         openFileButton->Bind(wxEVT_BUTTON, &DocumentationPanel::OnOpenFile, this);
+        editButton->Bind(wxEVT_BUTTON, &DocumentationPanel::OnEdit, this);  // Привязка обработчика к кнопке "Edit"
 
-        // Устанавливаем сайзер
-        SetSizerAndFit(sizer);
-
-        // Подписываемся на изменения состояния
+        // Подписываемся на изменение состояния
         appState->Bind(EVT_APP_STATE_CHANGED, &DocumentationPanel::OnStateChanged, this);
 
         // Инициализируем UI данными из editDoc
@@ -60,6 +87,9 @@ public:
 
 private:
     State* appState;                 // Ссылка на объект состояния
+    wxButton* backButton;            // Кнопка "Назад"
+    wxButton* editButton;            // Кнопка "Edit"
+    wxStaticText* headerText;        // Текст заголовка в хедере
     wxStaticText* titleText;         // Текстовое поле для заголовка
     wxStaticText* descriptionText;   // Текстовое поле для описания
     wxStaticText* tagsText;          // Текстовое поле для тегов
@@ -85,6 +115,7 @@ private:
             tagsText->SetLabel("");
             filePathText->SetLabel("");
             openFileButton->Enable(false);
+            editButton->Enable(false);  // Отключаем кнопку "Edit", если документа нет
         } else {
             // Обновляем данные из editDoc
             titleText->SetLabel(wxString::FromUTF8(appState->editDoc->title.c_str()));
@@ -92,6 +123,7 @@ private:
             tagsText->SetLabel(wxString::FromUTF8(joinTags(appState->editDoc->tags).c_str()));
             filePathText->SetLabel(wxString::FromUTF8(appState->editDoc->filePath.c_str()));
             openFileButton->Enable(true);
+            editButton->Enable(true);  // Включаем кнопку "Edit", если документ есть
         }
 
         // Обновляем отображение
@@ -100,7 +132,13 @@ private:
 
     // Обработчик изменения состояния
     void OnStateChanged(wxCommandEvent& event) {
+        event.Skip();
         UpdateUI();
+    }
+
+    // Обработчик для кнопки "Back"
+    void OnBack(wxCommandEvent& event) {
+        appState->SetPage(Pages::Main);
     }
 
     // Обработчик события для открытия файла
@@ -118,8 +156,21 @@ private:
 
         if (!wxLaunchDefaultApplication(filePath)) {
             wxMessageBox("Unable to open the file with the default application.", "Error", wxOK | wxICON_ERROR);
+
+            wxFileName fileName(filePath);
+            fileName.MakeAbsolute();  // Теперь fileName.GetFullPath() содержит абсолютный путь
+
+            // Открываем проводник Windows и выделяем файл с абсолютным путем
+            wxString command = wxString::Format("explorer /select,%s", fileName.GetFullPath());
+            wxExecute(command);
+        }
+    }
+
+    // Обработчик для кнопки "Edit"
+    void OnEdit(wxCommandEvent& event) {
+        if (appState->editDoc) {
+            appState->SetPage(Pages::Edit);
         }
     }
 };
-
 #endif // CURSE_DOCUMENTATIONPANEL_H

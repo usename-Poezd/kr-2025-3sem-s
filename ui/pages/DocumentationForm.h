@@ -40,9 +40,9 @@ public:
         titleCtrl = new wxTextCtrl(this, wxID_ANY);
         sizer->Add(titleCtrl, 0, wxALL | wxEXPAND, 5);
 
-        // Описание
+        // Описание (Многострочное поле)
         sizer->Add(new wxStaticText(this, wxID_ANY, "Description:"), 0, wxALL, 5);
-        descriptionCtrl = new wxTextCtrl(this, wxID_ANY);
+        descriptionCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
         sizer->Add(descriptionCtrl, 0, wxALL | wxEXPAND, 5);
 
         // Теги
@@ -72,8 +72,6 @@ public:
         appState->Unbind(EVT_APP_STATE_CHANGED, &DocumentationForm::OnStateChanged, this);
     }
 
-
-
 private:
     wxTextCtrl* titleCtrl;
     wxTextCtrl* descriptionCtrl;
@@ -100,6 +98,8 @@ private:
     }
 
     void OnStateChanged(wxCommandEvent& event) {
+        event.Skip();
+
         // Если мы редактируем существующий документ, заполняем форму значениями документа
         if (appState->editDoc) {
             titleCtrl->SetValue(wxString::FromUTF8(appState->editDoc->title.c_str()));
@@ -151,18 +151,22 @@ private:
                           filePath.ToStdString(wxConvUTF8));
 
         // Получаем ссылку на DocumentationService через state
-        DocumentationService& docService = appState->GetDocumentationService();
+        DocumentationService* docService = appState->GetDocumentationService();
 
         try {
             if (appState->editDoc) {
                 // Если это редактирование, обновляем документацию
-                docService.UpdateDocumentation(doc);
+                docService->UpdateDocumentation(doc);
                 wxMessageBox("Documentation updated successfully.", "Success", wxOK | wxICON_INFORMATION);
             } else {
                 // Если это создание, добавляем новую документацию
-                docService.AddDocumentation(doc);
+                docService->AddDocumentation(doc);
                 wxMessageBox("Documentation saved successfully.", "Success", wxOK | wxICON_INFORMATION);
+
             }
+
+            appState->SetEditDoc(new Documentation(doc));
+            appState->SetPage(Pages::View);
         } catch (const std::exception& e) {
             wxMessageBox("Error saving documentation: " + wxString(e.what()), "Error", wxOK | wxICON_ERROR);
         }

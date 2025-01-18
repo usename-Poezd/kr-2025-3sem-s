@@ -31,6 +31,16 @@ add_executable(curse WIN32  main.cpp
         ui/components/DocumentationList.cpp
         ui/components/DocumentationList.h
         ui/pages/DocumentationPanel.cpp
-        ui/pages/DocumentationPanel.h)
+        ui/pages/DocumentationPanel.h
+        domain/Project.cpp
+        domain/Project.h
+        repositories/ProjectRepositoryImp.cpp
+        repositories/ProjectRepositoryImp.h
+        services/ProjectService.cpp
+        services/ProjectService.h
+        ui/pages/ProjectForm.cpp
+        ui/pages/ProjectForm.h
+        ui/frames/ProjectFrame.cpp
+        ui/frames/ProjectFrame.h)
 target_link_libraries(curse ${wxWidgets_LIBRARIES})
 target_include_directories(curse PRIVATE ${wxWidgets_INCLUDE_DIRS})

@@ -21,9 +21,16 @@ private:
     DocumentationForm* documentationForm;
     DocumentationPanel* documentationPanel;
     MainPanel* mainPanel;
+    Pages prevPage = Pages::Main;
 
     // Обработчик события изменения состояния
     void OnStateChanged(wxCommandEvent& event) {
+        event.Skip();
+        if (prevPage == appState->page) {
+            return;
+        }
+
+        prevPage = appState->page;
         activePanel->Show(false);  // Скрываем текущую активную панель
 
         switch (appState->page) {
@@ -31,6 +38,12 @@ private:
                 activePanel = mainPanel;  // Переключаем на mainPanel
                 break;
             case Add:
+                activePanel = documentationForm;  // Переключаем на documentationForm
+                break;
+            case View:
+                activePanel = documentationPanel;  // Переключаем на documentationForm
+                break;
+            case Edit:
                 activePanel = documentationForm;  // Переключаем на documentationForm
                 break;
         }
