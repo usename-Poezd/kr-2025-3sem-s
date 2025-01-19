@@ -18,18 +18,26 @@ namespace fs = std::filesystem;
 
 class DocumentationRepositoryImp : public DocumentationRepository {
 private:
+    // Путь к базе данных
     std::string dbPath;
+
+    // Путь к директории, где хранятся текстовые файлы документаций
     std::string docsPath;
+
+    // Путь к директории, где хранятся прикрепленные файлы документаций
     std::string docsFilesPath;
 
+    // Возвращает полный путь к файлу документации по его ID
     std::string GetDocFilePath(const std::string& id) const {
         return docsPath + "/" + id + ".txt";
     }
 
+    // Возвращает путь к файлу-вложению документации по его ID и расширению
     std::string GetDocAttachmentPath(const std::string& id, const std::string& extension) const {
         return docsFilesPath + "/" + id + "." + extension;
     }
 
+    // Читает и получает файл документации, создавая объект `Documentation`
     static Documentation ParseDocFile(const std::string& id, const std::string& filePath) {
         std::ifstream file(filePath);
         if (!file.is_open()) {
@@ -38,32 +46,31 @@ private:
 
         std::string title, descriptionLine, tagsLine, filePathLine;
 
-        // Читаем TITLE
+        // Читаем заголовок документации
         std::getline(file, title);
         if (title.substr(0, 7) != "#TITLE ") {
             throw std::runtime_error("Invalid title format in documentation file: " + filePath);
         }
         title = title.substr(7);  // Удаляем "#TITLE "
 
-        // Читаем DESCRIPTION (многострочное описание)
+        // Читаем многострочное описание документации
         std::string description;
         while (std::getline(file, descriptionLine)) {
-            // Прерываем, когда встречаем #TAGS
+            // Прерываем чтение описания, когда встречаем строку с тегами
             if (descriptionLine.substr(0, 6) == "#TAGS ") {
                 tagsLine = descriptionLine;  // Сохраняем строку с тегами
-                break;  // Выход из цикла, так как описание закончено
+                break;
             }
             description += descriptionLine + "\n";  // Добавляем строку в описание
         }
 
-        // Убираем последнюю лишнюю новую строку
+        // Удаляем последнюю лишнюю новую строку
         if (!description.empty()) {
             description = description.substr(0, description.size() - 1);
         }
         description = description.substr(13); // Удаляем "#DESCRIPTION "
 
-
-        // Читаем TAGS
+        // Читаем теги документации
         if (tagsLine.substr(0, 6) != "#TAGS ") {
             throw std::runtime_error("Invalid tags format in documentation file: " + filePath);
         }
@@ -76,7 +83,7 @@ private:
             tags.push_back(tag);
         }
 
-        // Читаем FILEPATH, если он существует
+        // Читаем путь к прикрепленному файлу, если он указан
         std::string filePathValue;
         if (std::getline(file, filePathLine) && filePathLine.rfind("#FILEPATH ", 0) == 0) {
             filePathValue = filePathLine.substr(10);  // Удаляем "#FILEPATH "
@@ -84,7 +91,9 @@ private:
 
         return Documentation{id, title, description, tags, filePathValue};
     }
+
 public:
+    // Конструктор класса: инициализирует пути к директориям и создает их, если они не существуют
     DocumentationRepositoryImp(const std::string& basePath)
             : dbPath(basePath), docsPath(basePath + "/documentations"), docsFilesPath(basePath + "/documentations_files") {
         if (!fs::exists(dbPath)) fs::create_directory(dbPath);
@@ -92,6 +101,7 @@ public:
         if (!fs::exists(docsFilesPath)) fs::create_directory(docsFilesPath);
     }
 
+    // Возвращает список всех документаций
     std::vector<Documentation> FindAll() override {
         std::vector<Documentation> docs;
         for (const auto& entry : fs::directory_iterator(docsPath)) {
@@ -103,37 +113,43 @@ public:
         return docs;
     }
 
+    // Возвращает документацию по её ID, если она существует
     std::optional<Documentation> FindById(const std::string& id) override {
         std::string filePath = GetDocFilePath(id);
         if (!fs::exists(filePath)) return std::nullopt;
         return ParseDocFile(id, filePath);
     }
 
+    // Создает новую документацию
     void Create(Documentation& doc) override {
         std::string docFilePath = GetDocFilePath(doc.id);
         if (fs::exists(docFilePath))
             throw std::runtime_error("Documentation with ID already exists: " + doc.id);
 
-        // Создаем файл, если filePath указан
+        // Если указан файл, копируем его в директорию
         if (!doc.filePath.empty()) {
+            // Открываем исходный файл для чтения
             std::ifstream src(doc.filePath, std::ios::binary);
             if (!src.is_open()) {
-                throw std::runtime_error("Failed to open source file: " + doc.filePath);
+                throw std::runtime_error("Failed to open source file: " + doc.filePath); // Ошибка, если файл нельзя открыть
             }
 
-            // Генерируем расширение и путь для сохранения файла
-            std::string ext = fs::path(doc.filePath).extension().string().substr(1);  // Получаем расширение без точки
+            // Извлекаем расширение исходного файла
+            std::string ext = fs::path(doc.filePath).extension().string().substr(1);
+
+            // Генерируем путь для сохранения прикрепленного файла
             std::string attachmentPath = GetDocAttachmentPath(doc.id, ext);
 
+            // Создаем и записываем файл в директории
             std::ofstream dest(attachmentPath, std::ios::binary);
-            dest << src.rdbuf();
-            dest.close();
+            dest << src.rdbuf(); // Копируем содержимое исходного файла
+            dest.close(); // Закрываем новый файл
 
-            // Обновляем путь в объекте doc
+            // Обновляем путь к прикрепленному файлу в объекте `doc`
             doc.filePath = attachmentPath;
         }
 
-        // Создаем метаданные документа
+        // Создаем файл метаданных документации
         std::ofstream file(docFilePath);
         if (!file.is_open()) {
             throw std::runtime_error("Failed to create documentation file: " + docFilePath);
@@ -155,6 +171,7 @@ public:
         file.close();
     }
 
+    // Обновляет существующую документацию
     void Update(Documentation& doc) override {
         std::string docFilePath = GetDocFilePath(doc.id);
         if (!fs::exists(docFilePath))
@@ -162,38 +179,35 @@ public:
 
         // Читаем текущие данные документа из файла
         Documentation currentDoc = ParseDocFile(doc.id, docFilePath);
-//
-//        fs::remove(docFilePath);
 
-
-        // Проверяем, указан ли новый путь к файлу
+        // Если указан новый файл, копируем его и удаляем старый
         if (!doc.filePath.empty() && doc.filePath != currentDoc.filePath) {
+            // Удаляем старый прикрепленный файл
             fs::remove(currentDoc.filePath);
-            // Копируем новый файл
+
+            // Открываем исходный файл для чтения
             std::ifstream src(doc.filePath, std::ios::binary);
             if (!src.is_open()) {
-                throw std::runtime_error("Failed to open source file: " + doc.filePath);
+                throw std::runtime_error("Failed to open source file: " + doc.filePath); // Ошибка, если файл нельзя открыть
             }
 
-            // Генерируем расширение и путь для сохранения нового файла
-            std::string ext = fs::path(doc.filePath).extension().string().substr(1);  // Получаем расширение без точки
+            // Извлекаем расширение нового файла
+            std::string ext = fs::path(doc.filePath).extension().string().substr(1);
+
+            // Генерируем путь для нового прикрепленного файла
             std::string newAttachmentPath = GetDocAttachmentPath(doc.id, ext);
 
+            // Создаем и записываем новый файл по указанному пути
             std::ofstream dest(newAttachmentPath, std::ios::binary);
-            dest << src.rdbuf();
-            dest.close();
+            dest << src.rdbuf(); // Копируем содержимое исходного файла
+            dest.close(); // Закрываем новый файл
 
-            // Обновляем путь в объекте doc
+            // Обновляем путь к прикрепленному файлу в объекте `doc`
             doc.filePath = newAttachmentPath;
         }
 
-        // Обновляем данные текущего документа
-        doc.title = doc.title;
-        doc.description = doc.description;
-        doc.tags = doc.tags;
-
         // Перезаписываем файл метаданных
-        std::ofstream file(docFilePath, std::ios::trunc); // Открываем с флагом truncate для перезаписи
+        std::ofstream file(docFilePath, std::ios::trunc);
         if (!file.is_open()) {
             throw std::runtime_error("Failed to update documentation file: " + docFilePath);
         }
@@ -214,6 +228,7 @@ public:
         file.close();
     }
 
+    // Удаляет документацию по её ID
     void Delete(const std::string& id) override {
         std::string docFilePath = GetDocFilePath(id);
         if (fs::exists(docFilePath)) fs::remove(docFilePath);
@@ -223,6 +238,5 @@ public:
         }
     }
 };
-
 
 #endif //CURSE_DOCUMENTATIONREPOSITORYIMP_H
